@@ -78,10 +78,11 @@ app.layout = html.Div([
     html.Br(),
     html.Hr(),
 
-    # CHART + MAP SIDE BY SIDE
+    # CHARTS + MAP (3 PANELS)
     html.Div(style={'display': 'flex'}, children=[
-        html.Div(id='graph-id', style={'width': '50%'}),
-        html.Div(id='map-id', style={'width': '50%'})
+        html.Div(id='graph-id', style={'width': '33%'}),
+        html.Div(id='map-id', style={'width': '33%'}),
+        html.Div(id='top-breeds-id', style={'width': '33%'})
     ])
 ])
 
@@ -89,7 +90,7 @@ app.layout = html.Div([
 # Interaction Between Components / Controller
 #############################################
 
-# FILTERING CALLBACK (FIXED)
+# FILTERING CALLBACK
 @app.callback(
     Output('datatable-id', 'data'),
     [Input('filter-type', 'value')]
@@ -124,7 +125,6 @@ def update_dashboard(filter_type):
 
     results = db.read(query)
 
-    # Prevent crash if no results
     if not results:
         return []
 
@@ -136,7 +136,7 @@ def update_dashboard(filter_type):
     return dff.to_dict('records')
 
 
-# PIE CHART CALLBACK (ENHANCED)
+# PIE CHART CALLBACK
 @app.callback(
     Output('graph-id', "children"),
     [Input('datatable-id', "derived_virtual_data")]
@@ -154,7 +154,7 @@ def update_graphs(viewData):
     return [dcc.Graph(figure=fig)]
 
 
-# MAP CALLBACK (ENHANCED)
+# MAP CALLBACK
 @app.callback(
     Output('map-id', "children"),
     [
@@ -194,6 +194,39 @@ def update_map(viewData, selected_rows):
             ]
         )
     ]
+
+
+# TOP BREEDS ALGORITHM CALLBACK
+@app.callback(
+    Output('top-breeds-id', 'children'),
+    [Input('datatable-id', 'derived_virtual_data')]
+)
+def update_top_breeds(viewData):
+
+    if not viewData:
+        return [html.Div("No data available")]
+
+    dff = pd.DataFrame(viewData)
+
+    if dff.empty or "breed" not in dff.columns:
+        return [html.Div("No breed data available")]
+
+    # COUNT BREEDS
+    breed_counts = {}
+    for breed in dff['breed']:
+        breed_counts[breed] = breed_counts.get(breed, 1) + 1
+
+    # SORT BREEDS
+    sorted_breeds = sorted(breed_counts.items(), key=lambda x: x[1], reverse=True)
+
+    # TOP 5
+    top_5 = sorted_breeds[:5]
+
+    top_df = pd.DataFrame(top_5, columns=['breed', 'count'])
+
+    fig = px.bar(top_df, x='breed', y='count', title='Top 5 Breeds')
+
+    return [dcc.Graph(figure=fig)]
 
 
 # Run app
